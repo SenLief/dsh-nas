@@ -40,7 +40,7 @@ ghcr.io/senlief/dsh-nas:sha-提交哈希前12位
 
 `dsh-版本号` 标识包版本，同一包版本重新构建可覆盖该标签；需要固定某次镜像，可使用 GHCR 显示的 `@sha256:...` digest。
 
-首次发布后，在 GitHub 个人/组织页面的 Packages 中打开镜像，在 **Package settings → Change visibility** 设置为 **Public**。仓库公开不代表镜像自动公开。
+当前 `ghcr.io/senlief/dsh-nas:latest` 已验证可以匿名拉取，NAS 无须登录 GHCR。若迁移到新仓库，首次发布后应检查 Package 可见性；需要匿名拉取时，在 **Package settings → Change visibility** 设置为 **Public**。
 
 如果保留私有镜像，NAS 必须先用有该包读取权限的 GitHub classic PAT（`read:packages`）登录 `ghcr.io`。在终端交互式执行 `docker login ghcr.io -u 你的用户名`，在密码提示处输入 PAT，不要把 PAT 写进 Compose。
 
@@ -115,8 +115,10 @@ http://192.168.1.20:3080/
 
 ## 验证范围
 
-已核对实际 npm 包的版本和参数，并在 Node 24 下验证免登录访问首页和 API、恢复令牌登录、HTML 以及 Host/Origin 校验。交付环境没有 Docker，尚未执行完整 Linux 镜像构建，也尚未连接你的 GitHub/NAS。
+已核对实际 npm 包的版本和参数，并在 Node 24 下验证免登录访问首页和 API、恢复令牌登录、HTML 以及 Host/Origin 校验。
 
-Actions 会在 GitHub Linux runner 上完成实际 Docker 构建、免登录及令牌登录两种模式的容器启动检查、健康检查及 native 终端/bash 验证，只有检查通过才推送镜像；首次运行的 Actions 结果是镜像构建成功的依据。
+GitHub Linux runner 上的[构建与验证](https://github.com/SenLief/dsh-nas/actions/runs/38105704831)已成功，包含实际 Docker 构建、免登录及令牌登录两种模式的容器启动检查、健康检查及 native 终端/bash 验证。镜像已推送到 GHCR，并验证匿名拉取可用。NAS 实机运行需在设备上部署后确认。
+
+后续构建继续执行这些检查，全部通过后才推送镜像。
 
 参考：[官方项目](https://github.com/deepseek-ai/deepseek-harness)、[官方 npm 包](https://www.npmjs.com/package/@deepseek-ai/dsh)、[GHCR 发布文档](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)。
