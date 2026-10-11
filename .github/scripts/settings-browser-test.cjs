@@ -37,7 +37,24 @@ async function testPhoneUI(page) {
     assert(Math.abs(pickerBox.x - (width - pickerBox.x - pickerBox.width)) < 1, 'Workspace menu must be centered');
     await page.keyboard.press('Escape');
     await search.click();
-    await page.getByPlaceholder('搜索会话名称', { exact: true }).waitFor();
+    const searchInput = page.getByPlaceholder('搜索会话名称', { exact: true });
+    await searchInput.waitFor();
+    await page.waitForFunction(() => document.activeElement?.getAttribute('placeholder') === '搜索会话名称');
+    // Reopen while the collapse animation still reports a wide sidebar.
+    // The toolbar click must not bubble to the search's outside-click handler.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await searchInput.fill('nas-ci-search');
+      await page.getByRole('button', { name: '收起侧边栏', exact: true }).click();
+      await search.click();
+      await searchInput.waitFor();
+      assert.equal(await searchInput.inputValue(), 'nas-ci-search');
+      await searchInput.fill('');
+      await page.waitForFunction(() => document.activeElement?.getAttribute('placeholder') === '搜索会话名称');
+      await page.getByRole('button', { name: '收起侧边栏', exact: true }).click();
+      await search.click();
+      await searchInput.waitFor();
+      await page.waitForFunction(() => document.activeElement?.getAttribute('placeholder') === '搜索会话名称');
+    }
     await page.getByRole('button', { name: '收起侧边栏', exact: true }).click();
     if (output && width === 393) await page.screenshot({ path: path.join(output, 'mobile-home.png') });
     await newSession.click();
@@ -77,7 +94,7 @@ async function testPhoneUI(page) {
     assert(await panel.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'Settings panel must not overflow horizontally');
     const language = page.getByText('语言', { exact: true });
     assert((await language.boundingBox()).height <= 28, 'Language label must not stack character by character');
-    const themes = await Promise.all(['浅色', '深色', '跟随系统'].map(name => page.getByRole('checkbox', { name, exact: true }).boundingBox()));
+    const themes = await Promise.all(['浅色', '深色', '跟随系统'].map(name => page.getByRole('button', { name, exact: true }).boundingBox()));
     assert(themes.every(box => box.width >= 80 && Math.abs(box.y - themes[0].y) < 2), 'Theme controls should share one usable row');
     if (output && width === 393) await page.screenshot({ path: path.join(output, 'mobile-settings.png') });
     for (const name of ['模型', '内置插件', 'Agent 预设']) {
@@ -86,6 +103,7 @@ async function testPhoneUI(page) {
       assert(await panel.locator(':scope > div > div:last-child').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${name} content must not overflow horizontally`);
     }
     await page.getByRole('button', { name: '关闭', exact: true }).click();
+    assert.equal(await page.locator('[data-nas-mobile-frame]').evaluate(el => el.scrollLeft), 0, 'Settings navigation must not scroll the phone frame');
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.locator('[data-nas-mobile-leading]').waitFor({ state: 'detached' });
@@ -153,4 +171,4 @@ async function testPhoneUI(page) {
     await context.close();
     await browser.close();
   }
-})().catch(() => { process.exitCode = 1; });
+})().catch(error => { console.error(error); process.exitCode = 1; });

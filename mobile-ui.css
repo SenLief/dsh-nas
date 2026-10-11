@@ -4,6 +4,8 @@
   [data-nas-mobile-frame] {
     --nas-mobile-controls-top: calc(6px + env(safe-area-inset-top, 0px));
     grid-template-columns: 0 minmax(0, 1fr) 0 !important;
+    /* Focusing settings controls must not scroll the entire phone frame. */
+    overflow: clip !important;
   }
   [data-nas-mobile-frame] > {{layout.centerCol}} {
     grid-column: 2;
@@ -18,6 +20,7 @@
     top: var(--nas-mobile-controls-top);
     left: max(12px, env(safe-area-inset-left, 0px));
     z-index: 30;
+    pointer-events: none;
     width: calc(100% - max(12px, env(safe-area-inset-left, 0px)) - max(12px, env(safe-area-inset-right, 0px)));
   }
   [data-nas-mobile-leading] {{leading.controls}} {
@@ -27,7 +30,7 @@
     justify-content: space-between;
     gap: 0;
   }
-  [data-nas-mobile-leading] button { width: 44px; height: 44px; }
+  [data-nas-mobile-leading] button { width: 44px; height: 44px; pointer-events: auto; }
   html [data-nas-mobile-frame] :is([data-sidebar-right-expand], [data-sidebar-right-toggle]) {
     position: fixed;
     top: var(--nas-mobile-controls-top);

@@ -48,7 +48,7 @@ editHeader('})]\n\t\t\t});', `}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_cl
     children: (0, react_jsx_runtime.jsx)("button", {
       type: "button", className: HeaderLeadingControls_module_css_default.iconButton,
       "data-nas-mobile-search": true, "aria-label": t("search.label"), "aria-keyshortcuts": searchShortcut?.aria,
-      onClick: requestSearch,
+      onClick: event => { event.stopPropagation(); requestSearch(); },
       children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSearchOutlineRegular, { size: 20 })
     })
   })]\n\t\t\t});`);
@@ -62,6 +62,13 @@ replaceIn(sidebar, 'toggleSidebar: () => {', `requestSearch: () => {
 // Share the same request source as the original sidebar search control.
 replaceIn(workspace, 'const shortcutControls = createWorkspaceShortcutControls();',
   'const shortcutControls = createWorkspaceShortcutControls();\n\t\t\tuiWorkspace.requestSearch = shortcutControls.search;');
+// `wide` stays true while the sidebar's collapse animation settles. The phone
+// drawer is already hidden then, so every search request must expand it even
+// during that transition. expandSidebar is a no-op when it is already open.
+replaceIn(workspace, 'setSearchExpanded(true);\n\t\t\t\tif (!wide) {',
+  'setSearchExpanded(true);\n\t\t\t\texpandSidebar();\n\t\t\t\tif (!wide) {');
+replaceIn(workspace, 'setSearchOnExpand(true);\n\t\t\t\t\texpandSidebar();',
+  'setSearchOnExpand(true);');
 replaceIn(workspace, 'open: open && !addIsTheOnlyEntry && !menuIsEmpty,',
   'listClassName: "nas-workspace-menu",\n\t\t\t\t\topen: open && !addIsTheOnlyEntry && !menuIsEmpty,');
 replaceIn(conversation, 'className: clsx(InputBar_module_css_default.card,',
@@ -93,10 +100,14 @@ const drawerHook = `function useNasDrawer(ref, opened, close) {
     return () => {
       document.removeEventListener('keydown', keydown);
       for (const [el, wasInert] of inert) el.inert = wasInert;
-      if (!document.querySelector('[aria-modal="true"]')) {
-        const target = previous?.isConnected && previous.getClientRects().length > 0 ? previous : frame.querySelector('[data-nas-mobile-leading] button');
-        target?.focus({preventScroll: true});
-      }
+      // Closing the drawer remounts its toolbar. Restore focus after that
+      // commit, when the replacement trigger exists and is no longer inert.
+      window.requestAnimationFrame(() => {
+        if (!document.querySelector('[aria-modal="true"]')) {
+          const target = previous?.isConnected && previous !== document.body && !panel.contains(previous) && previous.getClientRects().length > 0 ? previous : frame.querySelector('[data-nas-mobile-leading] button');
+          target?.focus({preventScroll: true});
+        }
+      });
     };
   }, [ref, opened, close]);
 }
