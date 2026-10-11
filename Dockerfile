@@ -15,6 +15,8 @@ RUN npm install --global --prefix /opt/dsh --no-audit --no-fund \
     && npm cache clean --force
 COPY patch-browser-auth.cjs /tmp/patch-browser-auth.cjs
 RUN node /tmp/patch-browser-auth.cjs
+COPY patch-mobile-ui.cjs mobile-ui.css /tmp/
+RUN node /tmp/patch-mobile-ui.cjs
 
 FROM ${NODE_IMAGE} AS runtime
 ARG DSH_VERSION=0.2.0-rc.2

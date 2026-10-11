@@ -17,6 +17,7 @@
 - `compose.yaml`：NAS 部署，持久化用户目录、独立挂载工作目录。
 - `docker-entrypoint.sh`、`healthcheck.cjs`：镜像必需的辅助文件，不要遗漏。
 - `patch-browser-auth.cjs`：构建时加入免登录开关、容器 IPv4 监听及内网设置持久化及工作区默认路径补丁，仅支持已核对的 `0.2.0-rc.2`；不匹配的版本会中止构建。
+- `patch-mobile-ui.cjs`、`mobile-ui.css`：手机设置全屏单列、顶部分类导航及侧栏抽屉，版本限定为 `0.2.0-rc.2`。
 - `.env.example`：NAS 部署参数模板。
 - `.github/scripts/smoke-test.py`：无须 API Key 的免登录与令牌登录两种模式验证。
 - `.github/scripts/settings-browser-test.cjs`：Chromium 模拟非 localhost 访问，验证模型设置目录、保存和刷新后持久化；只使用无效测试密钥，不请求模型服务。
@@ -121,6 +122,14 @@ http://192.168.1.20:3080/
 4. 在 Web 页面添加 `/workspace/项目名` 作为工作区，核对文件后使用新位置。已有会话仍关联旧路径；重新添加目录不会自动迁移会话。
 
 保留旧目录作为备份，确认后自行整理。工作区登记信息和会话记录保存在 `dsh_home` 属于正常现象，项目实际文件才应在 `WORKSPACE_DIR`。
+
+### 手机界面
+
+浏览器宽度不超过 768px 时，设置页使用全屏单列，分类在顶部横向切换；标签、输入框和主题选项适配窄屏。主侧栏默认隐藏，顶部菜单按钮打开覆盖式抽屉；点击遮罩、按 Escape、新建会话或选择会话后关闭。抽屉打开时背景不参与键盘导航，关闭后恢复菜单焦点。桌面布局继续使用上游样式。
+
+界面改动通过构建时的 `patch-mobile-ui.cjs` 和 `mobile-ui.css` 注入实际 npm 前端包；CSS 模块类名从该版本的编译包中解析。包版本或预期代码不匹配时中止构建。自定义手机样式可编辑 `mobile-ui.css` 后重建镜像。
+
+更新后执行 `docker compose pull && docker compose up -d --force-recreate`，并强制刷新手机网页。Actions 会验证 320、393、430、768px 的布局、抽屉交互以及 1280px 的桌面设置布局，并在 `mobile-ui-previews` 产物中保存截图。
 
 ## 数据、更新与排错
 

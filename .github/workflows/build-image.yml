@@ -8,6 +8,8 @@ on:
       - docker-entrypoint.sh
       - healthcheck.cjs
       - patch-browser-auth.cjs
+      - patch-mobile-ui.cjs
+      - mobile-ui.css
       - .dockerignore
       - compose.yaml
       - .github/**
@@ -98,7 +100,9 @@ jobs:
             --env DSH_DISABLE_BROWSER_AUTH=1 \
             --env DSH_TRUSTED_HOSTS=nas-test.invalid:18080 "$IMAGE"
           python3 .github/scripts/smoke-test.py --no-auth
-          NODE_PATH="$RUNNER_TEMP/dsh-browser-test/node_modules" node .github/scripts/settings-browser-test.cjs
+          NODE_PATH="$RUNNER_TEMP/dsh-browser-test/node_modules" \
+            MOBILE_UI_ARTIFACT_DIR="$RUNNER_TEMP/mobile-ui-previews" \
+            node .github/scripts/settings-browser-test.cjs
           docker exec dsh-smoke node /usr/local/lib/dsh-healthcheck.cjs
           docker exec dsh-smoke node -e '
             const { createRequire } = require("node:module");
@@ -122,6 +126,15 @@ jobs:
             --env DSH_DISABLE_BROWSER_AUTH=0 \
             --env DSH_TRUSTED_HOSTS=nas-test.invalid:18080 "$IMAGE"
           python3 .github/scripts/smoke-test.py
+
+      - name: Save mobile and desktop UI previews
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mobile-ui-previews
+          path: ${{ runner.temp }}/mobile-ui-previews/*.png
+          if-no-files-found: ignore
+          retention-days: 7
 
       # Only the default branch may publish. PRs build and test without pushing.
       - name: Log in to GitHub Container Registry
