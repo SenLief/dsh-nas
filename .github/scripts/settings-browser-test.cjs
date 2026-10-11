@@ -25,10 +25,14 @@ const { chromium } = require('playwright');
     const welcome = page.getByRole('button', { name: '继续', exact: true });
     const skip = page.getByRole('button', { name: '稍后配置', exact: true });
     const settings = page.getByRole('button', { name: '设置', exact: true });
-    await welcome.or(skip).or(settings).first().waitFor();
-    if (await welcome.isVisible()) await welcome.click();
-    await skip.or(settings).first().waitFor();
-    if (await skip.isVisible()) await skip.click();
+    // The CI container is fresh. Its shell renders before asynchronous
+    // onboarding arrives, so a visible Settings button is not a ready signal.
+    await welcome.waitFor({ state: 'visible' });
+    await welcome.click();
+    await welcome.waitFor({ state: 'hidden' });
+    await skip.waitFor({ state: 'visible' });
+    await skip.click();
+    await skip.waitFor({ state: 'hidden' });
     await settings.click();
     await page.getByRole('button', { name: '模型', exact: true }).click();
     await page.getByRole('button', { name: '添加模型提供商', exact: true }).waitFor();
