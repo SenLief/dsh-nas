@@ -16,7 +16,7 @@
 - `.github/workflows/build-image.yml`：构建、真实启动检查、推送 GHCR。
 - `compose.yaml`：NAS 部署，持久化用户目录、独立挂载工作目录。
 - `docker-entrypoint.sh`、`healthcheck.cjs`：镜像必需的辅助文件，不要遗漏。
-- `patch-browser-auth.cjs`：构建时加入免登录开关，仅支持已核对的 `0.2.0-rc.2`；不匹配的版本会中止构建。
+- `patch-browser-auth.cjs`：构建时加入免登录开关及容器 IPv4 监听兼容补丁，仅支持已核对的 `0.2.0-rc.2`；不匹配的版本会中止构建。
 - `.env.example`：NAS 部署参数模板。
 - `.github/scripts/smoke-test.py`：无须 API Key 的免登录与令牌登录两种模式验证。
 
@@ -111,7 +111,7 @@ http://192.168.1.20:3080/
 - GHCR 拉取 unauthorized：检查 Package 是否公开，或先登录私有仓库。
 - 镜像包含 bash、git、curl、Python 3、ripgrep、bubblewrap 和 pnpm。Office/PDF 转换、浏览器自动化、PowerShell 等扩展可能需要另外安装依赖。Linux 命令沙箱可用性取决于 NAS 内核与 Docker 限制。
 
-此处依据实际发布的 npm 包配置：`0.2.0-rc.2` 不接受 `--host 0.0.0.0`，因此入口脚本自动绑定容器的具体 IPv4；该版本尚不支持最新源码文档中的 `--public-url` 和 `--tls-cert` 参数。反向代理应保留原始 Host，并转发 WebSocket；本配置按根路径部署。
+此处依据实际发布的 npm 包配置：`0.2.0-rc.2` 的 CLI 不接受 `--host 0.0.0.0`，Web 服务插件的原始 schema 也只允许回环或通配地址。本镜像在构建时适配 schema，并在运行时校验具体 IPv4，入口脚本自动绑定容器 IP。该版本尚不支持最新源码文档中的 `--public-url` 和 `--tls-cert` 参数。反向代理应保留原始 Host，并转发 WebSocket；本配置按根路径部署。
 
 ## 验证范围
 
