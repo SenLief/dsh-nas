@@ -78,6 +78,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Install Chromium for LAN settings regression test
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/dsh-browser-test" --no-audit --no-fund --no-save playwright@1.56.1
+          "$RUNNER_TEMP/dsh-browser-test/node_modules/.bin/playwright" install --with-deps chromium
+
       - name: Test anonymous Web access, login mode and trusted host
         env:
           IMAGE: ${{ steps.image.outputs.name }}:latest
@@ -91,6 +98,7 @@ jobs:
             --env DSH_DISABLE_BROWSER_AUTH=1 \
             --env DSH_TRUSTED_HOSTS=nas-test.invalid:18080 "$IMAGE"
           python3 .github/scripts/smoke-test.py --no-auth
+          NODE_PATH="$RUNNER_TEMP/dsh-browser-test/node_modules" node .github/scripts/settings-browser-test.cjs
           docker exec dsh-smoke node /usr/local/lib/dsh-healthcheck.cjs
           docker exec dsh-smoke node -e '
             const { createRequire } = require("node:module");

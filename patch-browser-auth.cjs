@@ -7,13 +7,13 @@ const { createRequire } = require('node:module');
 const cliPackage = path.resolve(process.argv[2] ||
   '/opt/dsh/lib/node_modules/@deepseek-ai/dsh/package.json');
 const load = createRequire(cliPackage);
-function patchPackage(name, marker, patches, preamble = '') {
+function patchPackage(name, marker, patches, preamble = '', bundle = 'lib/index.js') {
   const packageFile = load.resolve(`${name}/package.json`);
   const metadata = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
   if (metadata.version !== '0.2.0-rc.2') {
     throw new Error(`NAS patch supports only 0.2.0-rc.2; got ${name}@${metadata.version}. Review before upgrading.`);
   }
-  const file = path.join(path.dirname(packageFile), 'lib/index.js');
+  const file = path.join(path.dirname(packageFile), bundle);
   let source = fs.readFileSync(file, 'utf8');
   if (source.includes(marker)) return;
   for (const [needle, replacement] of patches) {
@@ -42,4 +42,10 @@ patchPackage('@deepseek-ai/dsh-host-webserver', '// NAS_IMAGE_CONCRETE_IPV4_BIND
   ['const resolved = config;',
    'const resolved = config;\n\t\tif (!isIPv4(resolved.host) || resolved.host === "0.0.0.0") throw new Error("NAS Web listener requires a concrete IPv4 address");'],
 ], 'import { isIPv4 } from "node:net";\n');
-console.log('Installed NAS IPv4 binding and opt-in browser-auth patches; Host/Origin checks are unchanged');
+// This deployment uses the same persistent NAS settings for trusted LAN pages.
+// Preserve the real connection.isLoopback value and all server admission checks.
+patchPackage('@deepseek-ai/dsh-client-ui-settings', '// NAS_IMAGE_LAN_SETTINGS', [
+  ['const persistence = ctx.remote.$host.isLoopback ? "host" : "memory";',
+   'const persistence = "host";'],
+], '', 'lib/client.js');
+console.log('Installed NAS IPv4, browser-auth and persistent LAN settings patches; Host/Origin checks are unchanged');

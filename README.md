@@ -16,9 +16,10 @@
 - `.github/workflows/build-image.yml`：构建、真实启动检查、推送 GHCR。
 - `compose.yaml`：NAS 部署，持久化用户目录、独立挂载工作目录。
 - `docker-entrypoint.sh`、`healthcheck.cjs`：镜像必需的辅助文件，不要遗漏。
-- `patch-browser-auth.cjs`：构建时加入免登录开关及容器 IPv4 监听兼容补丁，仅支持已核对的 `0.2.0-rc.2`；不匹配的版本会中止构建。
+- `patch-browser-auth.cjs`：构建时加入免登录开关、容器 IPv4 监听及内网设置持久化补丁，仅支持已核对的 `0.2.0-rc.2`；不匹配的版本会中止构建。
 - `.env.example`：NAS 部署参数模板。
 - `.github/scripts/smoke-test.py`：无须 API Key 的免登录与令牌登录两种模式验证。
+- `.github/scripts/settings-browser-test.cjs`：Chromium 模拟非 localhost 访问，验证模型设置目录、保存和刷新后持久化；只使用无效测试密钥，不请求模型服务。
 
 ## 1. 上传到自己的 GitHub 仓库
 
@@ -100,6 +101,12 @@ http://192.168.1.20:3080/
 
 `DSH_DISABLE_BROWSER_AUTH` 是本镜像加入的变量；仅给未经补丁的官方 npm 包设置该变量不会生效。直接运行镜像而不使用此 Compose 时，变量默认为 `0`。
 
+### 提供商目录加载失败
+
+`0.2.0-rc.2` 原始前端仅在 localhost/回环访问时读取服务器设置。通过 NAS IP 访问时会出现 `加载提供商目录失败: settings are unavailable in this browser`。本镜像已加入内网设置补丁，信任的 NAS 地址与 localhost 使用同一份持久化配置，Host/Origin 校验仍保留。
+
+若遇到此错误，执行 `docker compose pull && docker compose up -d --force-recreate`，随后刷新网页（必要时强制刷新）。此操作保留命名卷里的配置和凭据。
+
 ## 数据、更新与排错
 
 - 命名卷 `dsh_home` 挂载到 `/home/node`，包含 `.dsh` 配置、凭据、会话、插件及缓存；工作文件保存在 `WORKSPACE_DIR`。
@@ -118,6 +125,8 @@ http://192.168.1.20:3080/
 已核对实际 npm 包的版本和参数，并在 Node 24 下验证免登录访问首页和 API、恢复令牌登录、HTML 以及 Host/Origin 校验。
 
 GitHub Linux runner 上的[构建与验证](https://github.com/SenLief/dsh-nas/actions/runs/38105704831)已成功，包含实际 Docker 构建、免登录及令牌登录两种模式的容器启动检查、健康检查及 native 终端/bash 验证。镜像已推送到 GHCR，并验证匿名拉取可用。NAS 实机运行需在设备上部署后确认。
+
+本次内网设置修复已在本地运行实际 npm 前端模块：确认原始非 localhost 分支跳过设置，而补丁后成功读取真实服务器的持久化设置和提供商目录。另已验证 Web 页面保存测试密钥。新增的真实 Chromium 非 localhost 设置读写与刷新测试将在推送后由 Actions 执行；本次修复尚未发布镜像。
 
 后续构建继续执行这些检查，全部通过后才推送镜像。
 
