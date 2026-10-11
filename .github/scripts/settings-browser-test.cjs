@@ -14,6 +14,15 @@ async function testPhoneUI(page) {
     await page.locator('[data-nas-mobile-leading]').waitFor();
     assert(await page.locator('[data-nas-mobile-drawer]').evaluate(el => el.hidden));
     assert.equal(Math.round((await page.locator('[data-nas-main]').boundingBox()).width), width, 'Hidden sidebar must not consume phone width');
+    const leftToggle = await page.getByRole('button', { name: '打开侧边栏', exact: true }).boundingBox();
+    const rightToggle = await page.getByRole('button', { name: '打开右侧边栏', exact: true }).boundingBox();
+    assert(Math.abs(leftToggle.y - rightToggle.y) < 1 && leftToggle.height === rightToggle.height, 'Left and right drawer buttons must align');
+    const newSession = page.locator('[data-nas-new-session]');
+    const plus = await newSession.boundingBox();
+    assert(plus.x > width / 2 && plus.y > 700 && plus.y + plus.height <= 852, 'New-session plus belongs at bottom right');
+    if (output && width === 393) await page.screenshot({ path: path.join(output, 'mobile-home.png') });
+    await newSession.click();
+    await page.getByRole('button', { name: '打开侧边栏', exact: true }).waitFor();
     await page.getByRole('button', { name: '打开侧边栏', exact: true }).click();
     const drawer = page.locator('[data-nas-mobile-drawer]');
     await drawer.waitFor({ state: 'visible' });

@@ -11,12 +11,18 @@ function client(name) {
   return { file, source: fs.readFileSync(file, 'utf8') };
 }
 const layout = client('@deepseek-ai/dsh-client-ui-layout');
-const marker = '// NAS_MOBILE_UI_V1';
+const marker = '// NAS_MOBILE_UI_V2';
 if (layout.source.includes(marker)) process.exit(0);
-function replace(needle, value) {
-  if (layout.source.split(needle).length !== 2) throw new Error(`Unexpected layout bundle: ${needle}`);
-  layout.source = layout.source.replace(needle, value);
+const sidebar = client('@deepseek-ai/dsh-client-ui-sidebar');
+function replaceIn(bundle, needle, value) {
+  if (bundle.source.split(needle).length !== 2) throw new Error(`Unexpected client bundle ${bundle.file}: ${needle}`);
+  bundle.source = bundle.source.replace(needle, value);
 }
+const replace = (needle, value) => replaceIn(layout, needle, value);
+// Reuse the upstream new-session action and accessible name for the phone FAB.
+replaceIn(sidebar,
+  'className: HeaderLeadingControls_module_css_default.iconButton,\n\t\t\t\t\t\t"aria-label": t("session.new.label"),',
+  'className: HeaderLeadingControls_module_css_default.iconButton,\n\t\t\t\t\t\t"data-nas-new-session": true,\n\t\t\t\t\t\t"aria-label": t("session.new.label"),');
 // Hooks live inside the original React factory. Navigation and sidebar contents
 // keep using the upstream services; no polling or synthetic DOM button clicks.
 const drawerHook = `function useNasDrawer(ref, opened, close) {
@@ -113,4 +119,5 @@ const installStyle = `\nif (typeof document !== "undefined" && !document.querySe
   document.head.appendChild(style);
 }\n`;
 fs.writeFileSync(layout.file, marker + '\n' + layout.source + installStyle);
-console.log('Installed responsive phone settings and sidebar drawer');
+fs.writeFileSync(sidebar.file, marker + '\n' + sidebar.source);
+console.log('Installed phone settings, aligned drawer controls and new-session FAB');

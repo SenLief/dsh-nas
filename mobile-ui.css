@@ -1,18 +1,60 @@
 /* Only phone-sized Web views use the NAS layout. Desktop styles stay upstream. */
 @media (max-width: 768px) {
-  [data-nas-mobile-frame] { grid-template-columns: 0 minmax(0, 1fr) 0 !important; }
+  [data-nas-mobile-frame] {
+    --nas-mobile-controls-top: calc(6px + env(safe-area-inset-top, 0px));
+    grid-template-columns: 0 minmax(0, 1fr) 0 !important;
+  }
   [data-nas-mobile-frame] > {{layout.centerCol}} {
     grid-column: 2;
     padding-top: calc(52px + env(safe-area-inset-top, 0px));
+    /* Reserve a footer for the new-chat button below the composer. */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+    min-height: 0;
   }
   [data-nas-mobile-frame] > {{layout.rightbarCol}} { grid-column: 3; }
-  [data-nas-mobile-leading] {
+  [data-nas-mobile-frame] [data-nas-mobile-leading] {
     position: absolute;
-    top: calc(6px + env(safe-area-inset-top, 0px));
+    top: var(--nas-mobile-controls-top);
     left: max(12px, env(safe-area-inset-left, 0px));
     z-index: 30;
   }
   [data-nas-mobile-leading] button { width: 44px; height: 44px; }
+  html [data-nas-mobile-frame] :is([data-sidebar-right-expand], [data-sidebar-right-toggle]) {
+    position: fixed;
+    top: var(--nas-mobile-controls-top);
+    right: max(12px, env(safe-area-inset-right, 0px));
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    z-index: 31;
+  }
+  [data-nas-mobile-leading] [data-nas-new-session] {
+    position: fixed;
+    top: auto;
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    corner-shape: round;
+    background: var(--dsw-alias-state-business-primary, #4d6bfe);
+    color: #fff;
+    border: 0;
+    box-shadow: 0 4px 16px #243b7d24;
+    touch-action: manipulation;
+  }
+  [data-nas-mobile-leading] [data-nas-new-session]:hover {
+    background: var(--dsw-alias-state-business-primary, #4d6bfe);
+  }
+  [data-nas-mobile-leading] [data-nas-new-session] > svg { display: none; }
+  [data-nas-mobile-leading] [data-nas-new-session]::before {
+    content: "+";
+    font-size: 32px;
+    font-weight: 400;
+    line-height: 1;
+  }
+  [data-nas-mobile-frame][data-rightbar-fullscreen] [data-nas-new-session] { display: none; }
   [data-nas-mobile-backdrop] {
     position: absolute;
     inset: 0;
