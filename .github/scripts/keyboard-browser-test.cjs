@@ -31,6 +31,15 @@ module.exports = async function testKeyboardViewport(browser, origin) {
     await frame.waitFor();
     const editor = page.locator('[data-composer-input]');
     await editor.waitFor();
+    // The shell can render from persisted desktop layout before its viewport
+    // measurement and CSS finish applying on this fresh mobile page.
+    await page.waitForFunction(() => {
+      const editor = document.querySelector('[data-composer-input]');
+      const frame = document.querySelector('[data-nas-mobile-frame]');
+      return editor && frame && window.innerWidth === 393 &&
+        Math.abs(frame.getBoundingClientRect().width - 393) < 1 &&
+        parseFloat(getComputedStyle(editor).fontSize) >= 16;
+    });
     assert(await editor.evaluate(el => parseFloat(getComputedStyle(el).fontSize) >= 16), 'Phone composer must not use small text that triggers input zoom');
     for (const width of [393, 430]) {
       await page.setViewportSize({ width, height: 852 });
@@ -70,6 +79,13 @@ module.exports = async function testKeyboardViewport(browser, origin) {
       await editor.evaluate(el => el.blur());
     }
     console.log('PASS: simulated phone keyboard resize/pan, composer editing, toolbar alignment, pinch zoom and keyboard dismissal');
+  } catch (error) {
+    console.error('Keyboard viewport regression failed:', await page.evaluate(() => ({
+      width: innerWidth, height: innerHeight,
+      viewport: { width: visualViewport.width, height: visualViewport.height, scale: visualViewport.scale },
+      font: getComputedStyle(document.querySelector('[data-composer-input]')).fontSize,
+    })));
+    throw error;
   } finally {
     await context.close();
   }
