@@ -139,9 +139,9 @@ http://192.168.1.20:3080/
 
 已核对实际 npm 包的版本和参数，并在 Node 24 下验证免登录访问首页和 API、恢复令牌登录、HTML 以及 Host/Origin 校验。
 
-GitHub Linux runner 上的[构建与验证](https://github.com/SenLief/dsh-nas/actions/runs/38105704831)已成功，包含实际 Docker 构建、免登录及令牌登录两种模式的容器启动检查、健康检查及 native 终端/bash 验证。镜像已推送到 GHCR，并验证匿名拉取可用。NAS 实机运行需在设备上部署后确认。
+GitHub Linux runner 上的[构建与验证](https://github.com/SenLief/dsh-nas/actions/runs/38119221415)已成功，包含实际 Docker 构建、免登录及令牌登录两种模式的容器启动检查、健康检查、native 终端/bash、工作区路径及真实 Chromium 非 localhost 模型设置验证。镜像已推送到 GHCR，并验证匿名拉取可用。NAS 实机运行需在设备上部署后确认。
 
-本次内网设置修复已在本地运行实际 npm 前端模块：确认原始非 localhost 分支跳过设置，而补丁后成功读取真实服务器的持久化设置和提供商目录。另已验证 Web 页面保存测试密钥。新增的真实 Chromium 非 localhost 设置读写与刷新测试将在推送后由 Actions 执行；本次修复尚未发布镜像。本地已在免登录、令牌登录两种模式下通过真实 RPC 验证指定工作区根目录：目录选择器初始位置、首次默认目录、新建子目录及工作区登记位置均正确。Actions 将以容器的 `/workspace` 重跑这些检查。
+本次内网设置修复已在本地运行实际 npm 前端模块：确认原始非 localhost 分支跳过设置，而补丁后成功读取真实服务器的持久化设置和提供商目录。另已验证 Web 页面保存测试密钥。真实 Chromium 的非 localhost 模型设置读写与刷新测试已在上述 Actions 构建中通过；包含本次修复的镜像已发布到 GHCR。本地已在免登录、令牌登录两种模式下通过真实 RPC 验证指定工作区根目录：目录选择器初始位置、首次默认目录、新建子目录及工作区登记位置均正确。Actions 将以容器的 `/workspace` 重跑这些检查。
 
 后续构建继续执行这些检查，全部通过后才推送镜像。
 
