@@ -1,9 +1,11 @@
 """Check the real npm Web UI through a remapped port, without a model API key."""
 import argparse
 import http.client
+import json
 import re
 import subprocess
 import time
+import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -11,6 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--log-file", type=Path, help="Local npm process log instead of Docker")
 parser.add_argument("--port", type=int, default=18080)
 parser.add_argument("--no-auth", action="store_true", help="Verify the custom anonymous-access mode")
+parser.add_argument("--workspace-root", default="/workspace", help="Expected container workspace bind mount")
 args = parser.parse_args()
 
 def logs():
@@ -33,14 +36,17 @@ if not launch_url:
     raise SystemExit("DSH did not announce Web readiness within 120 seconds")
 
 authority = f"nas-test.invalid:{args.port}"
-def request(path, cookie=None, host=authority, origin=None):
+def request(path, cookie=None, host=authority, origin=None, payload=None):
     connection = http.client.HTTPConnection("127.0.0.1", args.port, timeout=10)
     headers = {"Host": host}
     if cookie:
         headers["Cookie"] = cookie
     if origin:
         headers["Origin"] = origin
-    connection.request("GET", path, headers=headers)
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
+    connection.request("POST" if payload is not None else "GET", path,
+                       body=json.dumps(payload) if payload is not None else None, headers=headers)
     response = connection.getresponse()
     status, response_headers, body = response.status, dict(response.getheaders()), response.read()
     connection.close()
@@ -67,5 +73,28 @@ assert status == 200 and b"<html" in body.lower(), "Authenticated Web UI should 
 assert b"__DSH_BOOT__" in body, "Web UI should include the DSH bootstrap configuration"
 assert request("/api/test-fence", cookie, "untrusted.invalid")[0] == 403, "Untrusted Host should be rejected"
 assert request("/api/test-fence", cookie, origin="http://untrusted.invalid")[0] == 403, "Cross-origin API requests should be rejected"
+
+def rpc(method, arguments=None):
+    status, _, body = request("/api/" + method, cookie, payload={
+        "type": "client-request", "rpcId": str(uuid.uuid4()),
+        "method": method, "payload": {"args": arguments or {}}
+    })
+    assert status == 200, f"{method}: HTTP {status}"
+    result = json.loads(body)["result"]
+    assert result["ok"], f"{method}: {result.get('error')}"
+    return result.get("value")
+
+root = args.workspace_root.rstrip("/")
+listing = rpc("directoryPicker/list")
+assert listing["path"] == root, f"Picker starts outside bind mount: {listing['path']}"
+default = rpc("workspace/initializeDefault")
+assert default["workspace"]["path"] == root + "/default-workspace", "First-use workspace should live inside bind mount"
+name = "nas-ci-project-" + uuid.uuid4().hex[:8]
+created = rpc("directoryPicker/createDirectory", {"path": listing["path"], "name": name})
+assert created == root + "/" + name, "New directory should live inside bind mount"
+registered = rpc("workspace/create", {"request": {"path": created}})
+assert registered["workspace"]["path"] == created, "Workspace should register the created project directory"
+assert rpc("directoryPicker/list", {"path": created})["path"] == created, "Explicit directory selections should still work"
+print("PASS: default directory, first-use workspace and new projects stay inside workspace bind mount")
 mode = "anonymous access" if args.no_auth else "token login"
 print(f"PASS: npm Web startup, remapped port, {mode}, HTML and Host/Origin fence")

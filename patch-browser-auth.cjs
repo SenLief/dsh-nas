@@ -48,4 +48,19 @@ patchPackage('@deepseek-ai/dsh-client-ui-settings', '// NAS_IMAGE_LAN_SETTINGS',
   ['const persistence = ctx.remote.$host.isLoopback ? "host" : "memory";',
    'const persistence = "host";'],
 ], '', 'lib/client.js');
-console.log('Installed NAS IPv4, browser-auth and persistent LAN settings patches; Host/Origin checks are unchanged');
+
+// The official browser picker starts in HOME, independently of Docker WORKDIR.
+// Keep explicit selections and the real account home intact; change only the
+// initial directory when this image supplies its mounted workspace root.
+patchPackage('@deepseek-ai/dsh-host-directory-picker-browse', '// NAS_IMAGE_WORKSPACE_PICKER', [
+  ['const target = resolve(path ?? home);',
+   'const target = resolve(path ?? process.env.DSH_WORKSPACE_ROOT ?? home);'],
+]);
+
+// First-use initialization otherwise searches the OS Documents directory.
+// Place its default project inside the bind mount, without moving old records.
+patchPackage('@deepseek-ai/dsh-api-workspace-controller', '// NAS_IMAGE_DEFAULT_WORKSPACE', [
+  ['let directory = documentsDirectory;',
+   'const workspaceRoot = process.env.DSH_WORKSPACE_ROOT;\n\tif (documentsDirectory === void 0 && workspaceRoot !== void 0) return paths.join(validateDocumentsDirectory(workspaceRoot, platform), DEFAULT_WORKSPACE_DIRECTORY);\n\tlet directory = documentsDirectory;'],
+]);
+console.log('Installed NAS IPv4, browser-auth, LAN settings and workspace defaults; Host/Origin checks are unchanged');

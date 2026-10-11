@@ -36,6 +36,7 @@ COPY healthcheck.cjs /usr/local/lib/dsh-healthcheck.cjs
 ENV PATH="/opt/dsh/bin:${PATH}" \
     HOME=/home/node \
     DSH_HOME=/home/node/.dsh \
+    DSH_WORKSPACE_ROOT=/workspace \
     DSH_DISABLE_BROWSER_AUTH=0 \
     NODE_ENV=production
 

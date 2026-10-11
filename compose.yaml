@@ -12,6 +12,8 @@ services:
       # Custom image switch: default to anonymous access on the NAS LAN.
       DSH_DISABLE_BROWSER_AUTH: "${DSH_DISABLE_BROWSER_AUTH:-1}"
       DSH_TRUSTED_HOSTS: "${NAS_IP},${DSH_EXTRA_TRUSTED_HOSTS:-}"
+      # Container path: UI directory picker and first-use workspace use this mount.
+      DSH_WORKSPACE_ROOT: /workspace
     volumes:
       # Includes ~/.dsh, credentials, sessions, plugin installs and caches.
       - dsh_home:/home/node

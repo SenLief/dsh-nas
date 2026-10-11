@@ -16,7 +16,7 @@
 - `.github/workflows/build-image.yml`：构建、真实启动检查、推送 GHCR。
 - `compose.yaml`：NAS 部署，持久化用户目录、独立挂载工作目录。
 - `docker-entrypoint.sh`、`healthcheck.cjs`：镜像必需的辅助文件，不要遗漏。
-- `patch-browser-auth.cjs`：构建时加入免登录开关、容器 IPv4 监听及内网设置持久化补丁，仅支持已核对的 `0.2.0-rc.2`；不匹配的版本会中止构建。
+- `patch-browser-auth.cjs`：构建时加入免登录开关、容器 IPv4 监听及内网设置持久化及工作区默认路径补丁，仅支持已核对的 `0.2.0-rc.2`；不匹配的版本会中止构建。
 - `.env.example`：NAS 部署参数模板。
 - `.github/scripts/smoke-test.py`：无须 API Key 的免登录与令牌登录两种模式验证。
 - `.github/scripts/settings-browser-test.cjs`：Chromium 模拟非 localhost 访问，验证模型设置目录、保存和刷新后持久化；只使用无效测试密钥，不请求模型服务。
@@ -93,7 +93,9 @@ http://192.168.1.20:3080/
 
 默认无须 token 或登录 Cookie，重启后也可直接访问。日志中的 `127.0.0.1` 是 DSH 发布版固定打印的地址，浏览器应使用 NAS 的真实地址。
 
-进入设置 → 模型，填写自己的 DeepSeek API Key 并保存；添加并选择 `/workspace` 作为工作目录，再开始任务。API Key 会随 DSH 配置保存在持久化用户目录中，不进入镜像或 GitHub 构建过程。
+目录选择器默认打开容器的 `/workspace`，对应 NAS 的 `WORKSPACE_DIR`（默认 `./workspace`）。首次自动工作区位于 `/workspace/default-workspace`；在这里新建项目目录，如 `/workspace/my-project`，文件会出现在 NAS 的 `./workspace/my-project`。
+
+进入设置 → 模型，填写自己的 DeepSeek API Key 并保存；选择相应工作区后开始任务。API Key 会随 DSH 配置保存在持久化用户目录中，不进入镜像或 GitHub 构建过程。
 
 默认只向 `.env` 指定的 NAS 网络接口发布端口。免登录时，能访问该端口的内网用户都能操作 DSH；API 的 Host/Origin 校验仍保留。
 
@@ -106,6 +108,19 @@ http://192.168.1.20:3080/
 `0.2.0-rc.2` 原始前端仅在 localhost/回环访问时读取服务器设置。通过 NAS IP 访问时会出现 `加载提供商目录失败: settings are unavailable in this browser`。本镜像已加入内网设置补丁，信任的 NAS 地址与 localhost 使用同一份持久化配置，Host/Origin 校验仍保留。
 
 若遇到此错误，执行 `docker compose pull && docker compose up -d --force-recreate`，随后刷新网页（必要时强制刷新）。此操作保留命名卷里的配置和凭据。
+
+### 工作区创建到了 dsh_home
+
+原始 npm 版本的目录选择器默认打开用户主目录 `/home/node`，与 Docker `WORKDIR` 无关。本镜像用 `DSH_WORKSPACE_ROOT=/workspace` 设置目录选择器的初始位置和首次自动工作区的位置。这个变量是容器路径；NAS 上的实际目录仍通过 `.env` 的 `WORKSPACE_DIR` 配置。HOME 保留为 `/home/node`，凭据、会话和缓存继续存入 `dsh_home`。
+
+已有工作区会保留登记的绝对路径，升级不会自动搬动文件或改写历史会话。对于之前误建在 `/home/node/项目名` 的工作区，可以：
+
+1. 停止该工作区中运行的任务。
+2. 在 NAS 的 Compose 应用目录，用 `docker compose cp dsh:/home/node/项目名 ./workspace/` 复制项目文件。只复制具体项目目录，不要复制整个 `/home/node` 或 `.dsh`。
+3. 给复制后的项目目录配置 UID/GID 1000 的写入权限。
+4. 在 Web 页面添加 `/workspace/项目名` 作为工作区，核对文件后使用新位置。已有会话仍关联旧路径；重新添加目录不会自动迁移会话。
+
+保留旧目录作为备份，确认后自行整理。工作区登记信息和会话记录保存在 `dsh_home` 属于正常现象，项目实际文件才应在 `WORKSPACE_DIR`。
 
 ## 数据、更新与排错
 
@@ -126,7 +141,7 @@ http://192.168.1.20:3080/
 
 GitHub Linux runner 上的[构建与验证](https://github.com/SenLief/dsh-nas/actions/runs/38105704831)已成功，包含实际 Docker 构建、免登录及令牌登录两种模式的容器启动检查、健康检查及 native 终端/bash 验证。镜像已推送到 GHCR，并验证匿名拉取可用。NAS 实机运行需在设备上部署后确认。
 
-本次内网设置修复已在本地运行实际 npm 前端模块：确认原始非 localhost 分支跳过设置，而补丁后成功读取真实服务器的持久化设置和提供商目录。另已验证 Web 页面保存测试密钥。新增的真实 Chromium 非 localhost 设置读写与刷新测试将在推送后由 Actions 执行；本次修复尚未发布镜像。
+本次内网设置修复已在本地运行实际 npm 前端模块：确认原始非 localhost 分支跳过设置，而补丁后成功读取真实服务器的持久化设置和提供商目录。另已验证 Web 页面保存测试密钥。新增的真实 Chromium 非 localhost 设置读写与刷新测试将在推送后由 Actions 执行；本次修复尚未发布镜像。本地已在免登录、令牌登录两种模式下通过真实 RPC 验证指定工作区根目录：目录选择器初始位置、首次默认目录、新建子目录及工作区登记位置均正确。Actions 将以容器的 `/workspace` 重跑这些检查。
 
 后续构建继续执行这些检查，全部通过后才推送镜像。
 
