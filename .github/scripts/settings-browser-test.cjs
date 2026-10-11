@@ -12,6 +12,9 @@ async function testPhoneUI(page) {
   for (const width of [320, 393, 430, 768]) {
     await page.setViewportSize({ width, height: 852 });
     await page.locator('[data-nas-mobile-leading]').waitFor();
+    if (await page.getByRole('button', { name: '收起右侧边栏', exact: true }).isVisible()) {
+      await page.getByRole('button', { name: '收起右侧边栏', exact: true }).click();
+    }
     assert(await page.locator('[data-nas-mobile-drawer]').evaluate(el => el.hidden));
     assert.equal(Math.round((await page.locator('[data-nas-main]').boundingBox()).width), width, 'Hidden sidebar must not consume phone width');
     const leftToggle = await page.getByRole('button', { name: '打开侧边栏', exact: true }).boundingBox();
@@ -19,10 +22,34 @@ async function testPhoneUI(page) {
     assert(Math.abs(leftToggle.y - rightToggle.y) < 1 && leftToggle.height === rightToggle.height, 'Left and right drawer buttons must align');
     const newSession = page.locator('[data-nas-new-session]');
     const plus = await newSession.boundingBox();
-    assert(plus.x > width / 2 && plus.y > 700 && plus.y + plus.height <= 852, 'New-session plus belongs at bottom right');
+    const search = page.locator('[data-nas-mobile-search]');
+    const searchBox = await search.boundingBox();
+    assert(Math.abs(plus.y - leftToggle.y) < 1 && Math.abs(searchBox.y - leftToggle.y) < 1, 'New session and search belong on the drawer toolbar');
+    assert(plus.x > leftToggle.x && searchBox.x > plus.x && searchBox.x < rightToggle.x, 'Toolbar actions keep their order');
+    const glyph = await newSession.locator('[data-nas-plus]').boundingBox();
+    assert(Math.abs(glyph.x + glyph.width / 2 - plus.x - plus.width / 2) < 1 && Math.abs(glyph.y + glyph.height / 2 - plus.y - plus.height / 2) < 1, 'Plus glyph must be centered');
+    const card = await page.locator('[data-nas-composer-card]').boundingBox();
+    assert(Math.abs(card.x - (width - card.x - card.width)) < 1, 'Workspace composer must have equal side margins');
+    await page.getByRole('button', { name: '选择工作区', exact: true }).click();
+    const picker = page.locator('.nas-workspace-menu');
+    await picker.waitFor();
+    const pickerBox = await picker.boundingBox();
+    assert(Math.abs(pickerBox.x - (width - pickerBox.x - pickerBox.width)) < 1, 'Workspace menu must be centered');
+    await page.keyboard.press('Escape');
+    await search.click();
+    await page.getByPlaceholder('搜索会话名称', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '收起侧边栏', exact: true }).click();
     if (output && width === 393) await page.screenshot({ path: path.join(output, 'mobile-home.png') });
     await newSession.click();
-    await page.getByRole('button', { name: '打开侧边栏', exact: true }).waitFor();
+    if (await page.getByRole('button', { name: '收起右侧边栏', exact: true }).isVisible()) {
+      await page.getByRole('button', { name: '收起右侧边栏', exact: true }).click();
+    }
+    await page.getByRole('button', { name: '打开右侧边栏', exact: true }).waitFor();
+    await page.getByRole('button', { name: '打开右侧边栏', exact: true }).click();
+    const rightTab = page.getByRole('tab', { name: '开始', exact: true });
+    await rightTab.waitFor();
+    assert((await rightTab.boundingBox()).y >= 52, 'Right sidebar must leave room for shared toolbar');
+    await page.getByRole('button', { name: '收起右侧边栏', exact: true }).click();
     await page.getByRole('button', { name: '打开侧边栏', exact: true }).click();
     const drawer = page.locator('[data-nas-mobile-drawer]');
     await drawer.waitFor({ state: 'visible' });

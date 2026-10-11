@@ -11,18 +11,61 @@ function client(name) {
   return { file, source: fs.readFileSync(file, 'utf8') };
 }
 const layout = client('@deepseek-ai/dsh-client-ui-layout');
-const marker = '// NAS_MOBILE_UI_V2';
+const marker = '// NAS_MOBILE_UI_V3';
 if (layout.source.includes(marker)) process.exit(0);
 const sidebar = client('@deepseek-ai/dsh-client-ui-sidebar');
+const workspace = client('@deepseek-ai/dsh-client-ui-workspace');
+const conversation = client('@deepseek-ai/dsh-client-ui-conversation');
 function replaceIn(bundle, needle, value) {
   if (bundle.source.split(needle).length !== 2) throw new Error(`Unexpected client bundle ${bundle.file}: ${needle}`);
   bundle.source = bundle.source.replace(needle, value);
 }
 const replace = (needle, value) => replaceIn(layout, needle, value);
-// Reuse the upstream new-session action and accessible name for the phone FAB.
+// Reuse upstream actions in a single phone toolbar.
 replaceIn(sidebar,
   'className: HeaderLeadingControls_module_css_default.iconButton,\n\t\t\t\t\t\t"aria-label": t("session.new.label"),',
   'className: HeaderLeadingControls_module_css_default.iconButton,\n\t\t\t\t\t\t"data-nas-new-session": true,\n\t\t\t\t\t\t"aria-label": t("session.new.label"),');
+const headerStart = sidebar.source.indexOf('function HeaderLeadingControls(');
+const headerEnd = sidebar.source.indexOf('\n\t\t//#endregion', headerStart);
+if (headerStart < 0 || headerEnd < 0) throw new Error('Missing sidebar header component');
+const originalHeader = sidebar.source.slice(headerStart, headerEnd);
+let header = originalHeader;
+function editHeader(needle, value) {
+  if (header.split(needle).length !== 2) throw new Error(`Unexpected sidebar header: ${needle}`);
+  header = header.replace(needle, value);
+}
+editHeader('toggleSidebar, startSession, useShortcuts', 'toggleSidebar, startSession, requestSearch, useShortcuts');
+editHeader('const newShortcut =', 'const searchShortcut = useShortcuts((rows) => rows.find((row) => row.id === "session.search"));\n\t\t\tconst newShortcut =');
+editHeader('children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconNewChatOutlineRegular, { size: 16 })',
+  `children: (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+    (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconNewChatOutlineRegular, { size: 16 }),
+    (0, react_jsx_runtime.jsx)("svg", { "data-nas-plus": true, "aria-hidden": true,
+      viewBox: "0 0 24 24", width: 20, height: 20, fill: "none", stroke: "currentColor", strokeWidth: 1.5,
+      children: (0, react_jsx_runtime.jsx)("path", { d: "M12 5v14M5 12h14", strokeLinecap: "round" }) })
+  ] })`);
+editHeader('})]\n\t\t\t});', `}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+    label: t("search.label"), shortcutKeys: searchShortcut?.keys, delayMs: 500,
+    children: (0, react_jsx_runtime.jsx)("button", {
+      type: "button", className: HeaderLeadingControls_module_css_default.iconButton,
+      "data-nas-mobile-search": true, "aria-label": t("search.label"), "aria-keyshortcuts": searchShortcut?.aria,
+      onClick: requestSearch,
+      children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSearchOutlineRegular, { size: 20 })
+    })
+  })]\n\t\t\t});`);
+replaceIn(sidebar, originalHeader, header);
+replaceIn(sidebar, 'const zh = {', 'const zh = {\n\t\t\t"search.label": "搜索会话",');
+replaceIn(sidebar, 'const en = {', 'const en = {\n\t\t\t"search.label": "Search sessions",');
+replaceIn(sidebar, 'toggleSidebar: () => {', `requestSearch: () => {
+    workspaceNavigation.requestSearch();
+  },
+  toggleSidebar: () => {`);
+// Share the same request source as the original sidebar search control.
+replaceIn(workspace, 'const shortcutControls = createWorkspaceShortcutControls();',
+  'const shortcutControls = createWorkspaceShortcutControls();\n\t\t\tuiWorkspace.requestSearch = shortcutControls.search;');
+replaceIn(workspace, 'open: open && !addIsTheOnlyEntry && !menuIsEmpty,',
+  'listClassName: "nas-workspace-menu",\n\t\t\t\t\topen: open && !addIsTheOnlyEntry && !menuIsEmpty,');
+replaceIn(conversation, 'className: clsx(InputBar_module_css_default.card,',
+  '"data-nas-composer-card": true,\n\t\t\t\t\t\tclassName: clsx(InputBar_module_css_default.card,');
 // Hooks live inside the original React factory. Navigation and sidebar contents
 // keep using the upstream services; no polling or synthetic DOM button clicks.
 const drawerHook = `function useNasDrawer(ref, opened, close) {
@@ -97,6 +140,9 @@ replace('toggleSidebar: (d) => {', 'closeMobileSidebar: (d) => {\n\t\t\t\t\t\tif
 // Resolve bundled CSS-module names rather than relying on hash prefixes.
 const maps = {
   layout: [layout.source, 'AppFrame'],
+  leading: [sidebar.source, 'HeaderLeadingControls'],
+  conversation: [conversation.source, 'ConversationRoot'],
+  workspace: [workspace.source, 'WorkspaceBrowser'],
   settings: [client('@deepseek-ai/dsh-client-ui-settings-general').source, 'SettingsRoot'],
   permission: [client('@deepseek-ai/dsh-client-ui-permission-presets').source, 'PermissionRow'],
   locale: [client('@deepseek-ai/dsh-client-locale').source, 'LanguageRow'],
@@ -120,4 +166,6 @@ const installStyle = `\nif (typeof document !== "undefined" && !document.querySe
 }\n`;
 fs.writeFileSync(layout.file, marker + '\n' + layout.source + installStyle);
 fs.writeFileSync(sidebar.file, marker + '\n' + sidebar.source);
-console.log('Installed phone settings, aligned drawer controls and new-session FAB');
+fs.writeFileSync(workspace.file, marker + '\n' + workspace.source);
+fs.writeFileSync(conversation.file, marker + '\n' + conversation.source);
+console.log('Installed phone settings, shared navigation toolbar and centered workspace views');
