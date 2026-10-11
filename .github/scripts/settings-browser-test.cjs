@@ -161,6 +161,7 @@ async function testPhoneUI(page) {
     await page.getByPlaceholder('已配置——输入新值可替换', { exact: true }).waitFor();
     assert.equal(await page.getByLabel('API 密钥', { exact: true }).inputValue(), '', 'Stored secret must not be echoed to the browser');
     await testPhoneUI(page);
+    await require('./keyboard-browser-test.cjs')(browser, origin);
     assert.equal(modelRequests.length, 0, 'Settings test must not contact external providers');
     console.log('PASS: non-loopback HTTP browser loads provider settings, saves a disposable key and retains it after reload');
   } catch (error) {

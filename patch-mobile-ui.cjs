@@ -75,7 +75,42 @@ replaceIn(conversation, 'className: clsx(InputBar_module_css_default.card,',
   '"data-nas-composer-card": true,\n\t\t\t\t\t\tclassName: clsx(InputBar_module_css_default.card,');
 // Hooks live inside the original React factory. Navigation and sidebar contents
 // keep using the upstream services; no polling or synthetic DOM button clicks.
-const drawerHook = `function useNasDrawer(ref, opened, close) {
+const drawerHook = `function useNasViewport(ref, mobile) {
+  react.useLayoutEffect(() => {
+    const frame = ref.current;
+    const viewport = window.visualViewport;
+    if (!mobile || !frame || !viewport) return;
+    let raf = null;
+    const clear = () => {
+      frame.style.removeProperty('--nas-viewport-height');
+      frame.style.removeProperty('--nas-viewport-top');
+      frame.removeAttribute('data-nas-keyboard-open');
+    };
+    const measure = () => {
+      raf = null;
+      // Leave user pinch zoom in control of the browser.
+      if (Math.abs(viewport.scale - 1) > 0.02) { clear(); return; }
+      const height = Math.min(window.innerHeight, viewport.height);
+      const keyboard = window.innerHeight - height > 120;
+      frame.style.setProperty('--nas-viewport-height', height + 'px');
+      frame.style.setProperty('--nas-viewport-top', (keyboard ? Math.max(0, viewport.offsetTop) : 0) + 'px');
+      frame.toggleAttribute('data-nas-keyboard-open', keyboard);
+    };
+    const schedule = () => { raf ??= window.requestAnimationFrame(measure); };
+    measure();
+    viewport.addEventListener('resize', schedule);
+    viewport.addEventListener('scroll', schedule);
+    window.addEventListener('resize', schedule);
+    return () => {
+      viewport.removeEventListener('resize', schedule);
+      viewport.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (raf !== null) window.cancelAnimationFrame(raf);
+      clear();
+    };
+  }, [ref, mobile]);
+}
+function useNasDrawer(ref, opened, close) {
   react.useEffect(() => {
     if (!opened || ref.current === null) return;
     const panel = ref.current;
@@ -114,7 +149,7 @@ const drawerHook = `function useNasDrawer(ref, opened, close) {
 `;
 replace('function AppFrame({ useStore, useSessions, usePanelInfo, actions, renderSlot, t }) {',
   drawerHook + 'function AppFrame({ useStore, useSessions, usePanelInfo, actions, renderSlot, t }) {');
-replace('const viewport = layoutInfo.viewportWidth;', 'const viewport = layoutInfo.viewportWidth;\n\t\t\tconst mobile = viewport <= 768;\n\t\t\tconst drawerRef = react.useRef(null);');
+replace('const viewport = layoutInfo.viewportWidth;', 'const viewport = layoutInfo.viewportWidth;\n\t\t\tconst mobile = viewport <= 768;\n\t\t\tuseNasViewport(frameRef, mobile);\n\t\t\tconst drawerRef = react.useRef(null);');
 replace('const sidebarPreference = sidebarCollapsed ? 0 : layoutInfo.sidebar === 0 ? 280 : layoutInfo.sidebar;',
   'useNasDrawer(drawerRef, mobile && !sidebarCollapsed, actions.closeMobileSidebar);\n\t\t\tconst sidebarPreference = sidebarCollapsed ? 0 : layoutInfo.sidebar === 0 ? 280 : layoutInfo.sidebar;');
 replace('const collapsedWidth = darwin || document.documentElement.hasAttribute("data-windows-titlebar") ? 0 : 56;',
@@ -153,6 +188,7 @@ const maps = {
   layout: [layout.source, 'AppFrame'],
   leading: [sidebar.source, 'HeaderLeadingControls'],
   conversation: [conversation.source, 'ConversationRoot'],
+  hero: [conversation.source, 'HeroShell'],
   workspace: [workspace.source, 'WorkspaceBrowser'],
   settings: [client('@deepseek-ai/dsh-client-ui-settings-general').source, 'SettingsRoot'],
   permission: [client('@deepseek-ai/dsh-client-ui-permission-presets').source, 'PermissionRow'],

@@ -1,11 +1,16 @@
 /* Only phone-sized Web views use the NAS layout. Desktop styles stay upstream. */
 [data-nas-plus], [data-nas-mobile-search] { display: none; }
 @media (max-width: 768px) {
-  [data-nas-mobile-frame] {
+  html [data-nas-mobile-frame] {
     --nas-mobile-controls-top: calc(6px + env(safe-area-inset-top, 0px));
     grid-template-columns: 0 minmax(0, 1fr) 0 !important;
     /* Focusing settings controls must not scroll the entire phone frame. */
     overflow: clip !important;
+    position: fixed;
+    top: var(--nas-viewport-top, 0px);
+    left: 0;
+    width: 100%;
+    height: var(--nas-viewport-height, 100dvh);
   }
   [data-nas-mobile-frame] > {{layout.centerCol}} {
     grid-column: 2;
@@ -33,7 +38,7 @@
   [data-nas-mobile-leading] button { width: 44px; height: 44px; pointer-events: auto; }
   html [data-nas-mobile-frame] :is([data-sidebar-right-expand], [data-sidebar-right-toggle]) {
     position: fixed;
-    top: var(--nas-mobile-controls-top);
+    top: calc(var(--nas-viewport-top, 0px) + var(--nas-mobile-controls-top));
     right: max(12px, env(safe-area-inset-right, 0px));
     width: 44px;
     height: 44px;
@@ -56,6 +61,18 @@
   [data-nas-mobile-frame] {{conversation.scrollBody}} {
     margin-inline: 0;
     scrollbar-gutter: stable both-edges;
+  }
+  /* Safari zooms small editable text when the keyboard opens. Keep the user's
+     larger font preference, while giving every phone editor a readable floor. */
+  [data-nas-mobile-frame] :is(input, textarea, select, [contenteditable="true"], [data-composer-placeholder]) {
+    font-size: max(16px, var(--dsh-content-font-size, 14px)) !important;
+  }
+  [data-nas-keyboard-open] {{hero.headline}} { display: none; }
+  [data-nas-keyboard-open] {{conversation.composerHero}} { padding-bottom: 8px; }
+  [data-nas-mobile-frame] {{settings.overlay}} {
+    top: var(--nas-viewport-top, 0px);
+    bottom: auto;
+    height: var(--nas-viewport-height, 100dvh);
   }
   .nas-workspace-menu {
     left: max(16px, calc((100vw - 360px) / 2)) !important;
@@ -92,8 +109,8 @@
     width: 100vw;
     max-width: 100vw;
     height: 100vh;
-    height: 100dvh;
-    max-height: 100dvh;
+    height: var(--nas-viewport-height, 100dvh);
+    max-height: var(--nas-viewport-height, 100dvh);
     border-radius: 0;
     flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0px);
