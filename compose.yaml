@@ -1,0 +1,31 @@
+services:
+  dsh:
+    image: "${DSH_IMAGE:-ghcr.io/senlief/dsh-nas:latest}"
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    ports:
+      # Bind only to the NAS LAN interface specified in .env.
+      - "${NAS_IP:?Set NAS_IP in .env}:${DSH_PORT:-3080}:3080"
+    environment:
+      TZ: "${TZ:-Asia/Shanghai}"
+      # Custom image switch: default to anonymous access on the NAS LAN.
+      DSH_DISABLE_BROWSER_AUTH: "${DSH_DISABLE_BROWSER_AUTH:-1}"
+      DSH_TRUSTED_HOSTS: "${NAS_IP},${DSH_EXTRA_TRUSTED_HOSTS:-}"
+    volumes:
+      # Includes ~/.dsh, credentials, sessions, plugin installs and caches.
+      - dsh_home:/home/node
+      - "${WORKSPACE_DIR:-./workspace}:/workspace"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  dsh_home:
