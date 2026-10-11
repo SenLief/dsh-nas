@@ -1,0 +1,139 @@
+name: Build and publish DSH image
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - Dockerfile
+      - docker-entrypoint.sh
+      - healthcheck.cjs
+      - patch-browser-auth.cjs
+      - .dockerignore
+      - compose.yaml
+      - .github/**
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      dsh_version:
+        description: "Optional exact npm version; empty uses the Dockerfile default"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dsh-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Resolve image name and version
+        id: image
+        env:
+          REQUESTED_DSH_VERSION: ${{ inputs.dsh_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          version="${REQUESTED_DSH_VERSION:-$(sed -n 's/^ARG DSH_VERSION=//p' Dockerfile | head -n 1)}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "An exact npm version is required, e.g. 0.2.0-rc.2" >&2
+            exit 1
+          fi
+          echo "name=$image" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=sha-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+          sh -n docker-entrypoint.sh
+          DSH_IMAGE="$image:latest" NAS_IP=127.0.0.1 docker compose config --quiet
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build linux/amd64 image for DXP4800 Plus
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          build-args: |
+            DSH_VERSION=${{ steps.image.outputs.version }}
+          tags: |
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:dsh-${{ steps.image.outputs.version }}
+            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.sha_tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test anonymous Web access, login mode and trusted host
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}:latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'docker rm -f dsh-smoke >/dev/null 2>&1 || true' EXIT
+          docker run --detach --name dsh-smoke --init \
+            --security-opt no-new-privileges:true --cap-drop ALL \
+            --publish 127.0.0.1:18080:3080 \
+            --env DSH_DISABLE_BROWSER_AUTH=1 \
+            --env DSH_TRUSTED_HOSTS=nas-test.invalid:18080 "$IMAGE"
+          python3 .github/scripts/smoke-test.py --no-auth
+          docker exec dsh-smoke node /usr/local/lib/dsh-healthcheck.cjs
+          docker exec dsh-smoke node -e '
+            const { createRequire } = require("node:module");
+            const load = createRequire("/opt/dsh/lib/node_modules/@deepseek-ai/dsh/package.json");
+            const terminal = load("node-pty").spawn("/bin/bash", ["-lc", "echo DSH_PTY_OK"], {
+              cwd: "/workspace", env: process.env
+            });
+            let output = "";
+            const timer = setTimeout(() => process.exit(1), 10000);
+            terminal.onData(data => { output += data; });
+            terminal.onExit(({ exitCode }) => {
+              clearTimeout(timer);
+              if (exitCode !== 0 || !output.includes("DSH_PTY_OK")) process.exit(1);
+              console.log("PASS: native terminal and bash");
+            });
+          '
+          docker rm -f dsh-smoke
+          docker run --detach --name dsh-smoke --init \
+            --security-opt no-new-privileges:true --cap-drop ALL \
+            --publish 127.0.0.1:18080:3080 \
+            --env DSH_DISABLE_BROWSER_AUTH=0 \
+            --env DSH_TRUSTED_HOSTS=nas-test.invalid:18080 "$IMAGE"
+          python3 .github/scripts/smoke-test.py
+
+      # Only the default branch may publish. PRs build and test without pushing.
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push the tested image
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          DSH_VERSION: ${{ steps.image.outputs.version }}
+          SHA_TAG: ${{ steps.image.outputs.sha_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE_NAME:latest"
+          docker push "$IMAGE_NAME:dsh-$DSH_VERSION"
+          docker push "$IMAGE_NAME:$SHA_TAG"
+          echo "Published: \`$IMAGE_NAME:dsh-$DSH_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
