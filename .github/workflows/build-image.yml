@@ -13,11 +13,14 @@ on:
       - .dockerignore
       - compose.yaml
       - .github/**
+  schedule:
+    # Every six hours at minute 23, UTC.
+    - cron: "23 */6 * * *"
   pull_request:
   workflow_dispatch:
     inputs:
       dsh_version:
-        description: "Optional exact npm version; empty uses the Dockerfile default"
+        description: "Optional exact npm version; empty follows npm latest"
         required: false
         type: string
 
@@ -29,7 +32,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      name: ${{ steps.image.outputs.name }}
+      version: ${{ steps.image.outputs.version }}
+      build: ${{ steps.image.outputs.build }}
+      sha_tag: ${{ steps.image.outputs.sha_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Test version resolution
+        run: node --test .github/scripts/resolve-image.test.cjs
+      - name: Resolve npm version and check published image
+        id: image
+        env:
+          REQUESTED_DSH_VERSION: ${{ inputs.dsh_version }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/resolve-image.cjs
+
   image:
+    needs: resolve
+    if: needs.resolve.outputs.build == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -38,25 +66,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
-      - name: Resolve image name and version
-        id: image
+      - name: Validate deployment configuration
         env:
-          REQUESTED_DSH_VERSION: ${{ inputs.dsh_version }}
-        shell: bash
+          DSH_IMAGE: ${{ needs.resolve.outputs.name }}:latest
+          NAS_IP: 127.0.0.1
         run: |
-          set -euo pipefail
-          image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          version="${REQUESTED_DSH_VERSION:-$(sed -n 's/^ARG DSH_VERSION=//p' Dockerfile | head -n 1)}"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "An exact npm version is required, e.g. 0.2.0-rc.2" >&2
-            exit 1
-          fi
-          echo "name=$image" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha_tag=sha-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
           sh -n docker-entrypoint.sh
-          DSH_IMAGE="$image:latest" NAS_IP=127.0.0.1 docker compose config --quiet
+          docker compose config --quiet
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -69,11 +85,11 @@ jobs:
           load: true
           push: false
           build-args: |
-            DSH_VERSION=${{ steps.image.outputs.version }}
+            DSH_VERSION=${{ needs.resolve.outputs.version }}
           tags: |
-            ${{ steps.image.outputs.name }}:latest
-            ${{ steps.image.outputs.name }}:dsh-${{ steps.image.outputs.version }}
-            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.sha_tag }}
+            ${{ needs.resolve.outputs.name }}:latest
+            ${{ needs.resolve.outputs.name }}:dsh-${{ needs.resolve.outputs.version }}
+            ${{ needs.resolve.outputs.name }}:${{ needs.resolve.outputs.sha_tag }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -89,7 +105,7 @@ jobs:
 
       - name: Test anonymous Web access, login mode and trusted host
         env:
-          IMAGE: ${{ steps.image.outputs.name }}:latest
+          IMAGE: ${{ needs.resolve.outputs.name }}:latest
         shell: bash
         run: |
           set -euo pipefail
@@ -148,9 +164,9 @@ jobs:
       - name: Push the tested image
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         env:
-          IMAGE_NAME: ${{ steps.image.outputs.name }}
-          DSH_VERSION: ${{ steps.image.outputs.version }}
-          SHA_TAG: ${{ steps.image.outputs.sha_tag }}
+          IMAGE_NAME: ${{ needs.resolve.outputs.name }}
+          DSH_VERSION: ${{ needs.resolve.outputs.version }}
+          SHA_TAG: ${{ needs.resolve.outputs.sha_tag }}
         shell: bash
         run: |
           set -euo pipefail

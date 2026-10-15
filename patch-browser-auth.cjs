@@ -7,11 +7,15 @@ const { createRequire } = require('node:module');
 const cliPackage = path.resolve(process.argv[2] ||
   '/opt/dsh/lib/node_modules/@deepseek-ai/dsh/package.json');
 const load = createRequire(cliPackage);
+// Local builds retain the reviewed default; CI supplies its resolved exact version.
+const expectedVersion = process.env.DSH_VERSION || '0.2.0-rc.2';
+const installedVersion = load('./package.json').version;
+if (installedVersion !== expectedVersion) throw new Error(`Expected dsh@${expectedVersion}, got ${installedVersion}`);
 function patchPackage(name, marker, patches, preamble = '', bundle = 'lib/index.js') {
   const packageFile = load.resolve(`${name}/package.json`);
   const metadata = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
-  if (metadata.version !== '0.2.0-rc.2') {
-    throw new Error(`NAS patch supports only 0.2.0-rc.2; got ${name}@${metadata.version}. Review before upgrading.`);
+  if (metadata.version !== expectedVersion) {
+    throw new Error(`NAS patch expected ${name}@${expectedVersion}; got ${metadata.version}.`);
   }
   const file = path.join(path.dirname(packageFile), bundle);
   let source = fs.readFileSync(file, 'utf8');

@@ -3,10 +3,14 @@ const path = require('node:path');
 const { createRequire } = require('node:module');
 const cli = path.resolve(process.argv[2] || '/opt/dsh/lib/node_modules/@deepseek-ai/dsh/package.json');
 const load = createRequire(cli);
+// Local builds retain the reviewed default; CI supplies its resolved exact version.
+const expectedVersion = process.env.DSH_VERSION || '0.2.0-rc.2';
+const installedVersion = load('./package.json').version;
+if (installedVersion !== expectedVersion) throw new Error(`Expected dsh@${expectedVersion}, got ${installedVersion}`);
 function client(name) {
   const metadataFile = load.resolve(`${name}/package.json`);
   const metadata = JSON.parse(fs.readFileSync(metadataFile, 'utf8'));
-  if (metadata.version !== '0.2.0-rc.2') throw new Error(`Mobile patch requires ${name}@0.2.0-rc.2`);
+  if (metadata.version !== expectedVersion) throw new Error(`Mobile patch requires ${name}@${expectedVersion}; got ${metadata.version}`);
   const file = path.join(path.dirname(metadataFile), 'lib/client.js');
   return { file, source: fs.readFileSync(file, 'utf8') };
 }
