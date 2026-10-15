@@ -148,11 +148,11 @@ http://192.168.1.20:3080/
 - **设置**：全屏单列，分类在顶部横向切换；说明文字与控件正常换行，主题选项并排显示，避免窄屏挤成竖排。
 - **软键盘**：根据可视视口高度和偏移调整布局，让输入框在软键盘弹出时保持可见；输入字号至少 16px，减少 iPhone 输入时自动放大。
 
-以下为 393 × 852 浏览器视口的实际页面截图（未配置真实模型密钥）。
+以下为 393 × 852 浏览器视口的实际页面截图（未配置真实模型密钥）。主界面与设置截图取自本次通过验证的 Linux 构建；其余为本地浏览器截图，系统字体可能略有差异。
 
 | 主界面：顶部工具栏、居中输入框 | 设置：横向分类、单列内容 |
 | :---: | :---: |
-| <img src="docs/images/mobile-home.jpg" alt="移动端主界面" width="280"> | <img src="docs/images/mobile-settings.jpg" alt="移动端全屏设置" width="280"> |
+| <img src="docs/images/mobile-home.png" alt="移动端主界面" width="280"> | <img src="docs/images/mobile-settings.png" alt="移动端全屏设置" width="280"> |
 
 <details>
 <summary>展开查看侧栏、搜索与工作区菜单</summary>
@@ -184,7 +184,7 @@ http://192.168.1.20:3080/
 
 已核对实际 npm 包的版本和参数，并在 Node 24 下验证免登录访问首页和 API、恢复令牌登录、HTML 以及 Host/Origin 校验。
 
-GitHub Linux runner 上的[最近一次已通过的构建与验证](https://github.com/SenLief/dsh-nas/actions/runs/38139829377)包含实际 Docker 构建、免登录及令牌登录两种模式、健康检查、native 终端/bash、工作区路径、非 localhost 模型设置读写及持久化，以及移动端布局、抽屉和软键盘视口回归。镜像已推送到 GHCR。新增的 npm 更新检测还包含版本相同跳过、新版本构建、镜像不存在和网络/权限异常的自动测试。
+GitHub Linux runner 上的[最近一次已通过的构建与验证](https://github.com/SenLief/dsh-nas/actions/runs/38695054654)包含实际 Docker 构建、免登录及令牌登录两种模式、健康检查、native 终端/bash、工作区路径、非 localhost 模型设置读写及持久化，以及移动端布局、抽屉和软键盘视口回归。镜像已推送到 GHCR。新增的 npm 更新检测还包含版本相同跳过、新版本构建、镜像不存在和网络/权限异常的自动测试。
 
 手机预览为实际 npm 前端页面截图；NAS 实机运行及真实手机软键盘效果需在设备上确认。
 
