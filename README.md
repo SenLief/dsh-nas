@@ -111,7 +111,7 @@ http://192.168.1.20:3080/
 
 目录选择器默认打开容器的 `/workspace`，对应 NAS 的 `WORKSPACE_DIR`（默认 `./workspace`）。首次自动工作区位于 `/workspace/default-workspace`；在这里新建项目目录，如 `/workspace/my-project`，文件会出现在 NAS 的 `./workspace/my-project`。
 
-进入设置 → 模型，填写自己的 DeepSeek API Key 并保存；选择相应工作区后开始任务。API Key 会随 DSH 配置保存在持久化用户目录中，不进入镜像或 GitHub 构建过程。
+进入更多 → 设置 → 模型，填写自己的 DeepSeek API Key 并保存；选择相应工作区后开始任务。API Key 会随 DSH 配置保存在持久化用户目录中，不进入镜像或 GitHub 构建过程。
 
 默认只向 `.env` 指定的 NAS 网络接口发布端口。免登录时，能访问该端口的内网用户都能操作 DSH；API 的 Host/Origin 校验仍保留。
 
@@ -172,8 +172,8 @@ docker compose up -d --force-recreate
 
 已核对实际 npm 包的版本和参数，并在 Node 24 下验证免登录访问首页和 API、恢复令牌登录、HTML 以及 Host/Origin 校验。
 
-GitHub Linux runner 上的构建执行实际 Docker 构建、免登录及令牌登录两种模式、健康检查、native 终端/bash、工作区路径、非 localhost 模型设置读写及持久化，以及 npm 更新检测。移除移动端定制后不再执行旧布局与软键盘补丁的专用测试。
+恢复原生 UI 后的 [GitHub Actions 构建与验证](https://github.com/SenLief/dsh-nas/actions/runs/40091113755)已通过，基于 `0.2.1-rc.2`，包含实际 Docker 构建、免登录及令牌登录两种模式、健康检查、native 终端/bash、工作区路径、非 localhost 模型设置读写及持久化，以及 npm 更新检测。移除移动端定制后不再执行旧布局与软键盘补丁的专用测试。
 
-全部检查通过后才推送镜像到 GHCR。NAS 实机运行仍需在设备上部署后确认。
+镜像已推送到 GHCR，`latest` 与 `dsh-0.2.1-rc.2` 指向本次成功构建，并确认可以匿名拉取。后续构建仍须全部检查通过后才发布；NAS 实机运行需在设备上部署后确认。
 
 参考：[官方项目](https://github.com/deepseek-ai/deepseek-harness)、[官方 npm 包](https://www.npmjs.com/package/@deepseek-ai/dsh)、[GHCR 发布文档](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)。
