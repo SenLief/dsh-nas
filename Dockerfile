@@ -2,7 +2,7 @@
 ARG NODE_IMAGE=node:24-bookworm-slim
 
 FROM ${NODE_IMAGE} AS packages
-ARG DSH_VERSION=0.2.0-rc.2
+ARG DSH_VERSION=0.2.1-rc.2
 ARG PNPM_VERSION=10.32.1
 
 # node-pty and other native dependencies may need compilation on Linux.
@@ -15,11 +15,9 @@ RUN npm install --global --prefix /opt/dsh --no-audit --no-fund \
     && npm cache clean --force
 COPY patch-browser-auth.cjs /tmp/patch-browser-auth.cjs
 RUN DSH_VERSION="${DSH_VERSION}" node /tmp/patch-browser-auth.cjs
-COPY patch-mobile-ui.cjs mobile-ui.css /tmp/
-RUN DSH_VERSION="${DSH_VERSION}" node /tmp/patch-mobile-ui.cjs
 
 FROM ${NODE_IMAGE} AS runtime
-ARG DSH_VERSION=0.2.0-rc.2
+ARG DSH_VERSION=0.2.1-rc.2
 LABEL org.opencontainers.image.title="DeepSeek Harness for NAS" \
       org.opencontainers.image.description="Web UI installed from the official @deepseek-ai/dsh npm package" \
       org.opencontainers.image.version="${DSH_VERSION}"

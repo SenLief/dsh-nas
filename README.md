@@ -4,13 +4,13 @@
 
 仓库：[SenLief/dsh-nas](https://github.com/SenLief/dsh-nas)。镜像：`ghcr.io/senlief/dsh-nas:latest`。
 
-使用官方 npm 包 `@deepseek-ai/dsh`（已验证版本 `0.2.0-rc.2`），GitHub Actions 跟随 npm `latest` 标签选择精确版本，构建 `linux/amd64` 镜像并推送到你的 GitHub Container Registry（GHCR），NAS 通过 Compose 拉取运行。
+使用官方 npm 包 `@deepseek-ai/dsh`（当前构建默认版本 `0.2.1-rc.2`），GitHub Actions 跟随 npm `latest` 标签选择精确版本，构建 `linux/amd64` 镜像并推送到你的 GitHub Container Registry（GHCR），NAS 通过 Compose 拉取运行。
 
 本配置按内网使用要求默认免登录，直接打开 NAS 地址即可。官方 npm 版没有关闭网页登录的开关，因此镜像构建时会应用本目录的版本限定补丁；这属于本镜像的定制行为。
 
 这是 DeepSeek Harness 的 Web 服务，模型通过 API 调用。安装它不会在 NAS 上下载或运行 DeepSeek 模型权重。
 
-已适配手机浏览器：顶部工具栏、左右抽屉、居中工作区菜单和全屏设置，详见[移动端说明与预览](#手机界面)。
+Web 界面直接使用官方 npm 包的原生布局，镜像不再注入移动端 CSS、抽屉、工具栏或软键盘适配。
 
 ## 文件
 
@@ -19,10 +19,8 @@
 - `compose.yaml`：NAS 部署，持久化用户目录、独立挂载工作目录。
 - `docker-entrypoint.sh`、`healthcheck.cjs`：镜像必需的辅助文件，不要遗漏。
 - `patch-browser-auth.cjs`：构建时加入免登录开关、容器 IPv4 监听及内网设置持久化及工作区默认路径补丁，校验安装版本及预期代码结构；不匹配时中止构建。
-- `patch-mobile-ui.cjs`、`mobile-ui.css`：手机设置全屏单列、顶部工具栏与分类导航、侧栏抽屉及软键盘视口适配。
 - `.env.example`：NAS 部署参数模板。
 - `.github/scripts/resolve-image.cjs`、`resolve-image.test.cjs`：解析 npm 版本，对比 GHCR 当前镜像版本，测试更新检测与异常处理。
-- `docs/images/`：移动端浏览器页面预览截图。
 - `.github/scripts/smoke-test.py`：无须 API Key 的免登录与令牌登录两种模式验证。
 - `.github/scripts/settings-browser-test.cjs`：Chromium 模拟非 localhost 访问，验证模型设置目录、保存和刷新后持久化；只使用无效测试密钥，不请求模型服务。
 
@@ -30,7 +28,7 @@
 
 本目录是 `SenLief/dsh-nas` 的仓库根目录，默认分支为 `main`。构建文件位于根目录，工作流位于 `.github/workflows/build-image.yml`。
 
-推送构建相关文件到 `main` / `master` 会触发构建；只更新 README 或预览图片不会触发。也可打开 Actions → **Build and publish DSH image** → **Run workflow**，选择默认分支执行。手动版本输入留空时跟随 npm `latest`，填写精确版本可重建指定版本。
+推送构建相关文件到 `main` / `master` 会触发构建；只更新 README 不会触发。也可打开 Actions → **Build and publish DSH image** → **Run workflow**，选择默认分支执行。手动版本输入留空时跟随 npm `latest`，填写精确版本可重建指定版本。
 
 ### npm 更新自动构建
 
@@ -53,7 +51,7 @@ GitHub 定时任务在默认分支运行，可能排队延迟；公开仓库连�
 
 ```text
 ghcr.io/senlief/dsh-nas:latest
-ghcr.io/senlief/dsh-nas:dsh-0.2.0-rc.2
+ghcr.io/senlief/dsh-nas:dsh-0.2.1-rc.2
 ghcr.io/senlief/dsh-nas:sha-提交哈希前12位
 ```
 
@@ -140,60 +138,42 @@ http://192.168.1.20:3080/
 
 保留旧目录作为备份，确认后自行整理。工作区登记信息和会话记录保存在 `dsh_home` 属于正常现象，项目实际文件才应在 `WORKSPACE_DIR`。
 
-### 手机界面
+### 原生界面与第三方移动端插件
 
-浏览器宽度不超过 **768px** 时自动启用移动端布局，无需切换配置。原先常驻的左侧栏改为抽屉，主界面使用完整屏幕宽度；设置页改为全屏单列，避免分类导航与内容互相挤压。桌面继续使用上游布局。
+镜像使用官方 npm 包自带的界面，手机和桌面的样式均由上游决定。此前定制的移动端抽屉、顶部按钮、设置布局、居中菜单及软键盘补丁已全部移除，旧版定制界面预览也已移除。镜像不会自动安装移动端插件。
 
-- **顶部工具栏**：从左到右为左抽屉、＋新建会话、搜索、右抽屉；按钮高度一致、图标居中，在插件等页面也能使用新建会话和搜索。
-- **侧栏抽屉**：默认收起，点击左上按钮覆盖展开；点击遮罩、按 Escape、新建会话或选择会话后关闭。抽屉打开时限制键盘焦点，关闭后恢复焦点。搜索会展开抽屉中的原有会话搜索框。
-- **工作区**：输入卡片与工作区选择菜单居中，两侧留白相同。右侧面板为顶部工具栏留出空间。
-- **设置**：全屏单列，分类在顶部横向切换；说明文字与控件正常换行，主题选项并排显示，避免窄屏挤成竖排。
-- **软键盘**：根据可视视口高度和偏移调整布局，让输入框在软键盘弹出时保持可见；输入字号至少 16px，减少 iPhone 输入时自动放大。
+免登录、内网设置读写和 `/workspace` 默认目录功能继续保留；它们与界面布局分开处理。上游已提供的能力直接使用上游实现。
 
-以下 6 张预览均使用当前仓库的前端补丁，在同一个 **393 × 852** 本地浏览器视口重新截取，展示主界面、设置、左侧抽屉、搜索、工作区菜单和右侧面板。截图使用独立测试环境，未配置真实模型密钥；字体和原生操作入口可能随系统及访问地址不同而变化。
+如果已经安装 `dsh-web-mobile` 等第三方插件，它们保存在 `dsh_home` 命名卷中，拉取或重建镜像不会自动卸载。需要完全查看原生 UI 时，请先在 DSH 插件管理中禁用对应的界面插件，再重启服务并刷新网页。镜像不会自动修改已有插件或用户数据。
 
-| 主界面：同高工具栏、居中输入框 | 设置：顶部分类、全屏单列 |
-| :---: | :---: |
-| <img src="docs/images/mobile-home.jpg" alt="移动端主界面：左抽屉、新建会话、搜索和右抽屉按钮同高排列" width="280"> | <img src="docs/images/mobile-settings.jpg" alt="移动端设置：顶部横向分类、完整标签及并排主题选项" width="280"> |
+更新镜像后执行：
 
-<details>
-<summary>展开查看抽屉、搜索、工作区菜单与右侧面板</summary>
+```sh
+docker compose pull
+docker compose up -d --force-recreate
+```
 
-| 左侧抽屉：导航与会话列表 | 会话搜索：复用原有搜索框 |
-| :---: | :---: |
-| <img src="docs/images/mobile-drawer.jpg" alt="移动端左侧抽屉与背景遮罩" width="280"> | <img src="docs/images/mobile-search.jpg" alt="点击顶部搜索按钮后展开抽屉中的会话搜索框" width="280"> |
-
-| 工作区菜单：左右留白一致 | 右侧面板：为顶部工具栏留出空间 |
-| :---: | :---: |
-| <img src="docs/images/mobile-workspace-menu.jpg" alt="移动端居中的工作区选择菜单" width="280"> | <img src="docs/images/mobile-right-panel.jpg" alt="移动端右侧面板：顶部工具栏下方显示开始页及工作区操作" width="280"> |
-
-</details>
-
-界面改动通过构建时的 `patch-mobile-ui.cjs` 和 `mobile-ui.css` 注入实际 npm 前端包；CSS 模块类名从编译包中解析。安装版本必须与本次构建选定版本一致，预期代码不匹配时中止构建。自定义手机样式可编辑 `mobile-ui.css` 后重建镜像。
-
-更新后执行 `docker compose pull && docker compose up -d --force-recreate`，并强制刷新手机网页。Actions 验证 320、393、430、768px 的布局与抽屉交互、1280px 的桌面设置布局，以及软键盘视口缩小和平移；在 `mobile-ui-previews` 构建产物中保存截图。软键盘测试使用浏览器模拟，iOS/Android 真机效果仍需在设备上确认。
+随后强制刷新浏览器页面，避免继续加载旧版界面资源。
 
 ## 数据、更新与排错
 
 - 命名卷 `dsh_home` 挂载到 `/home/node`，包含 `.dsh` 配置、凭据、会话、插件及缓存；工作文件保存在 `WORKSPACE_DIR`。
 - 备份时先执行 `docker compose stop`，同时备份命名卷和工作目录。`docker compose down -v` 会删除命名卷，包含配置和凭据。
 - 重建 GHCR 镜像后，NAS 执行 `docker compose pull && docker compose up -d` 更新。日常重启不重新从 npm 下载主程序。
-- 自动构建会尝试 npm 最新版本，但补丁与回归测试仍需兼容；上游结构变化时应适配 `patch-browser-auth.cjs`、`patch-mobile-ui.cjs` 及测试后重建。Dockerfile 本地默认版本仍为 `0.2.0-rc.2`，本地升级用 `--build-arg DSH_VERSION=精确版本`。升级前备份数据。
+- 自动构建会尝试 npm 最新版本，但补丁与回归测试仍需兼容；上游结构变化时应适配 `patch-browser-auth.cjs` 及测试后重建。Dockerfile 本地默认版本为 `0.2.1-rc.2`，本地升级用 `--build-arg DSH_VERSION=精确版本`。升级前备份数据。
 - API 请求出现 403：确认浏览器访问的 IP/域名包含在 `DSH_TRUSTED_HOSTS` 中。Compose 自动信任 `NAS_IP`；额外域名可写入 `.env` 的 `DSH_EXTRA_TRUSTED_HOSTS`，逗号分隔，可带端口，不带协议和路径。修改后运行 `docker compose up -d`。
 - EACCES / 工作目录不可写：检查挂载目录是否允许 UID/GID `1000:1000` 写入。
 - GHCR 拉取 unauthorized：检查 Package 是否公开，或先登录私有仓库。
 - 镜像包含 bash、git、curl、Python 3、ripgrep、bubblewrap 和 pnpm。Office/PDF 转换、浏览器自动化、PowerShell 等扩展可能需要另外安装依赖。Linux 命令沙箱可用性取决于 NAS 内核与 Docker 限制。
 
-此处依据实际发布的 npm 包配置：`0.2.0-rc.2` 的 CLI 不接受 `--host 0.0.0.0`，Web 服务插件的原始 schema 也只允许回环或通配地址。本镜像在构建时适配 schema，并在运行时校验具体 IPv4，入口脚本自动绑定容器 IP。该版本尚不支持最新源码文档中的 `--public-url` 和 `--tls-cert` 参数。反向代理应保留原始 Host，并转发 WebSocket；本配置按根路径部署。
+运行时入口脚本绑定容器的具体 IPv4，并通过 `--trusted-host` 指定允许访问的 NAS 地址。`0.2.1-rc.2` 已原生支持具体 IP 监听和基于 Host 的设置读写，构建时保留其实现；旧版 `0.2.0-rc.2` 继续使用相应的兼容补丁。反向代理应保留原始 Host，并转发 WebSocket；本配置按根路径部署。
 
 ## 验证范围
 
 已核对实际 npm 包的版本和参数，并在 Node 24 下验证免登录访问首页和 API、恢复令牌登录、HTML 以及 Host/Origin 校验。
 
-GitHub Linux runner 上的[最近一次已通过的构建与验证](https://github.com/SenLief/dsh-nas/actions/runs/38695054654)包含实际 Docker 构建、免登录及令牌登录两种模式、健康检查、native 终端/bash、工作区路径、非 localhost 模型设置读写及持久化，以及移动端布局、抽屉和软键盘视口回归。镜像已推送到 GHCR。新增的 npm 更新检测还包含版本相同跳过、新版本构建、镜像不存在和网络/权限异常的自动测试。
+GitHub Linux runner 上的构建执行实际 Docker 构建、免登录及令牌登录两种模式、健康检查、native 终端/bash、工作区路径、非 localhost 模型设置读写及持久化，以及 npm 更新检测。移除移动端定制后不再执行旧布局与软键盘补丁的专用测试。
 
-手机预览为实际 npm 前端页面截图；NAS 实机运行及真实手机软键盘效果需在设备上确认。
-
-后续构建继续执行这些检查，全部通过后才推送镜像。
+全部检查通过后才推送镜像到 GHCR。NAS 实机运行仍需在设备上部署后确认。
 
 参考：[官方项目](https://github.com/deepseek-ai/deepseek-harness)、[官方 npm 包](https://www.npmjs.com/package/@deepseek-ai/dsh)、[GHCR 发布文档](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)。

@@ -3,5 +3,3 @@
 !docker-entrypoint.sh
 !healthcheck.cjs
 !patch-browser-auth.cjs
-!patch-mobile-ui.cjs
-!mobile-ui.css
